@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeGray Spillway — 2D Synthetic Seismic (Log-Based)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;
+      --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+      --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
+      --accent:#58a6ff;--radius:6px;--radius-lg:10px;
+      --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh;}
+
+    header{border-bottom:1px solid var(--border);padding:14px 26px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    .header-title{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);}
+    .header-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+    .badge{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--text2);}
+
+    .layout{display:grid;grid-template-columns:240px 1fr;height:calc(100vh - 55px);}
+
+    .sidebar{border-right:1px solid var(--border);padding:16px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
+    .section-title{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;}
+    .ctrl-item{display:flex;flex-direction:column;gap:5px;}
+    .ctrl-top{display:flex;justify-content:space-between;align-items:baseline;}
+    .ctrl-label{font-size:12px;color:var(--text2);}
+    .ctrl-val{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);}
+    .ctrl-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+
+    input[type=range]{width:100%;height:3px;appearance:none;background:var(--bg3);border-radius:2px;outline:none;cursor:pointer;}
+    input[type=range]::-webkit-slider-thumb{appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg);}
+    input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg);}
+
+    .view-btns{display:flex;flex-direction:column;gap:5px;}
+    .vbtn{width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;text-align:left;}
+    .vbtn.on{background:rgba(88,166,255,0.15);color:var(--accent);border-color:var(--accent);}
+
+    .zone-cards{display:flex;flex-direction:column;gap:6px;}
+    .zone-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;border-left-width:3px;}
+    .zn{font-size:11px;font-weight:500;color:var(--text);}
+    .zs{font-size:10px;color:var(--text3);margin-top:1px;}
+    .zc{display:flex;align-items:center;gap:5px;margin-top:6px;}
+    .zc label{font-size:10px;color:var(--text3);white-space:nowrap;}
+    select{width:100%;font-size:11px;padding:3px 5px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);cursor:pointer;}
+
+    .main-panel{padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+    .canvas-container{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+    canvas{display:block;}
+
+    .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text3);font-family:var(--mono);}
+    .li{display:flex;align-items:center;gap:4px;}
+    .lb{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+
+    .ref-note{font-size:10px;color:var(--text3);font-family:var(--mono);border-top:1px solid var(--border);padding-top:8px;line-height:1.7;}
+
+    ::-webkit-scrollbar{width:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+    .mobile-controls{display:none;position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border2);padding:10px 14px;gap:8px;flex-direction:column;}
+    .m-row{display:flex;align-items:center;gap:8px;}
+    .m-lbl{font-family:var(--mono);font-size:11px;color:var(--text2);min-width:80px;flex-shrink:0;}
+    .m-val{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);min-width:44px;text-align:right;flex-shrink:0;}
+    .m-view{display:flex;gap:5px;flex-wrap:wrap;}
+    .m-vbtn{padding:4px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;}
+    .m-vbtn.on{background:rgba(88,166,255,0.15);color:var(--accent);border-color:var(--accent);}
+    .accordion-toggle{display:none;width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text2);font-family:var(--mono);font-size:12px;cursor:pointer;text-align:left;margin-bottom:6px;}
+    .accordion-body{display:block;}
+    .accordion-body.collapsed{display:none;}
+
+    @media(max-width:700px){
+      header{padding:10px 14px;}
+      .header-title{font-size:12px;}
+      .header-sub,header>div:last-child{display:none;}
+      .mobile-controls{display:flex;}
+      .layout{grid-template-columns:1fr;height:auto;}
+      .sidebar{border-right:none;border-top:1px solid var(--border);order:2;padding:12px;}
+      .sidebar-freq,.sidebar-amp,.sidebar-view{display:none;}
+      .main-panel{order:1;padding:10px 10px 0;gap:8px;}
+      .accordion-toggle{display:block;}
+      .ref-note{padding-bottom:16px;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="mobile-controls">
+  <div class="m-row">
+    <span class="m-lbl">Ricker freq.</span>
+    <input type="range" id="freq-m" min="10" max="100" value="40" step="1" style="flex:1;">
+    <span class="m-val" id="freqLblM">40 Hz</span>
+  </div>
+  <div class="m-row">
+    <span class="m-lbl">Amp. scale</span>
+    <input type="range" id="amp-m" min="10" max="100" value="50" step="1" style="flex:1;">
+    <span class="m-val" id="ampLblM">50%</span>
+  </div>
+  <div class="m-view">
+    <button class="m-vbtn on" id="mbtn-seismic" onclick="setView('seismic')">Seismic</button>
+    <button class="m-vbtn"    id="mbtn-model"   onclick="setView('model')">Geo model</button>
+    <button class="m-vbtn"    id="mbtn-overlay" onclick="setView('overlay')">Overlay</button>
+  </div>
+</div>
+
+<header>
+  <div>
+    <div class="header-title">DeGray Spillway — 2D Synthetic Seismic (Log-Based AI)</div>
+    <div class="header-sub">Jackfork Group, Ouachita Mountains, Arkansas · Pennsylvanian (318–320 Ma)</div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <span class="badge">Al-Siyabi (2000)</span>
+    <span class="badge">Slatt &amp; Stone (2010)</span>
+    <span class="badge">Log-based AI · 1-D Convolutional</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+
+    <div class="sidebar-freq">
+      <div class="section-title">Wavelet</div>
+      <div class="ctrl-item">
+        <div class="ctrl-top">
+          <span class="ctrl-label">Ricker frequency</span>
+          <span class="ctrl-val" id="freqLbl">40 Hz</span>
+        </div>
+        <input type="range" id="freq" min="10" max="100" value="40" step="1">
+        <div class="ctrl-sub">tuning λ/4 ≈ <span id="tuningLbl">—</span></div>
+      </div>
+    </div>
+
+    <div class="sidebar-amp">
+      <div class="section-title">Display</div>
+      <div class="ctrl-item">
+        <div class="ctrl-top">
+          <span class="ctrl-label">Amplitude scale</span>
+          <span class="ctrl-val" id="ampLbl">50%</span>
+        </div>
+        <input type="range" id="amp" min="10" max="100" value="50" step="1">
+      </div>
+    </div>
+
+    <div class="sidebar-view">
+      <div class="section-title">View Mode</div>
+      <div class="view-btns">
+        <button class="vbtn on" id="btn-seismic" onclick="setView('seismic')">Seismic + wiggle</button>
+        <button class="vbtn"    id="btn-model"   onclick="setView('model')">Geological model</button>
+        <button class="vbtn"    id="btn-overlay" onclick="setView('overlay')">Overlay</button>
+      </div>
+    </div>
+
+    <div>
+      <button class="accordion-toggle" onclick="toggleAcc(this)">&#9662; Zone geometry settings</button>
+      <div class="accordion-body">
+        <div class="section-title">Zone Geometry</div>
+        <div class="zone-cards" id="zoneCtrl"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Modeling Approach</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);line-height:2;">
+        <div>AI(x,d) = AI&#x209B;&#x2095;&#x2090;&#x2097;&#x2091; + f(x) &times; (AI&#x2097;&#x2092;&#x1D68;(d) &minus; AI&#x209B;&#x2095;&#x2090;&#x2097;&#x2091;)</div>
+        <div style="margin-top:6px;font-size:9px;line-height:1.8;">
+          f(x) = lateral sand fraction (0&ndash;1)<br>
+          AI&#x2097;&#x2092;&#x1D68; = log-derived impedance<br>
+          Full log character preserved;<br>
+          scaled by lateral geometry.
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Geometry Reference</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);line-height:2;">
+        <div><span style="color:var(--text2);">Continuous</span> &mdash; blanket sheet</div>
+        <div><span style="color:var(--text2);">Lenticular</span> &mdash; channel body</div>
+        <div><span style="color:var(--text2);">Pinch-out L/R</span> &mdash; wedge termination</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <main class="main-panel">
+    <div class="canvas-container">
+      <canvas id="C"></canvas>
+    </div>
+    <div class="legend" id="legDiv"></div>
+    <div class="ref-note">
+      AI profiles follow the digitized DeGray East GR log character (Slatt &amp; Stone, 2010) scaled laterally by zone geometry:
+      AI(x,d) = AI_shale + f(x) &times; (AI_log(d) &minus; AI_shale), where f(x) is the lateral sand fraction derived from the selected geometry.
+      This preserves realistic log variability across all traces while respecting depositional lateral extent.
+      Zone geometries are schematic interpretations after Al-Siyabi (2000).
+    </div>
+  </main>
+</div>
+
+<script>
+const RAW_GR=[
+[0,900],[10,800],[20,680],[30,1100],[40,1600],[50,1850],[60,1800],[70,1500],
+[80,700],[90,780],[100,650],[110,600],[120,700],[130,900],[140,1200],[150,680],
+[160,1300],[170,680],[180,900],[190,700],[200,720],[210,1900],[220,2100],
+[230,1900],[240,1100],[250,1200],[260,900],[270,1600],[280,1000],[290,1000],
+[300,1500],[310,1600],[320,1900],[330,1000],[340,900],[350,1700],[360,1750],
+[370,1500],[380,700],[390,1100],[400,1200],[410,1300],[420,1320],[430,1100],
+[440,1500],[450,1600],[460,1700],[470,1800],[480,1700],[490,1800],[500,1850],
+[510,1830],[520,1520],[530,1300],[540,1920],[550,1500],[560,1300],[570,2120],
+[580,1300],[590,1400],[600,1000],[610,920],[620,1200],[630,1100],[640,1000],
+[650,2100],[660,1100],[670,1700],[680,1100],[690,1680],[700,1400],[710,1000],
+[720,1320],[730,1000],[740,1300],[750,900],[760,1700],[770,1100],[780,1080],
+[790,1260],[800,1520],[810,1080],[820,1300],[830,1120],[840,1300],[850,1320],
+[860,1900],[870,1330],[880,2100],[890,2200],[900,2300],[910,1900],[920,1880],
+[930,1300],[940,1100],[950,1750],[960,1300],[970,1120],[980,1900],[990,1120],
+[1000,1500]
+];
+
+const GR_MIN=Math.min(...RAW_GR.map(d=>d[1]));
+const GR_MAX=Math.max(...RAW_GR.map(d=>d[1]));
+const GR_CUT=75,VP_SAND=4000,VP_SHALE=2500,RHO_SAND=2.43,RHO_SHALE=2.15;
+const AI_SHALE=VP_SHALE*RHO_SHALE;
+const ND=200,NT=100;
+
+const ZONES=[
+  {id:'D',label:'Zone D',sub:'Channel fill',       col:'#58a6ff',top:0.00,bot:0.05,geom:'lenticular'},
+  {id:'C',label:'Zone C',sub:'Proximal lobes',     col:'#3fb950',top:0.05,bot:0.20,geom:'flat'},
+  {id:'B',label:'Zone B',sub:'Distal lobes',       col:'#bc8cff',top:0.20,bot:0.45,geom:'pinchout-R'},
+  {id:'A',label:'Zone A',sub:'Prox. lobes (deep)', col:'#ffa657',top:0.45,bot:0.80,geom:'flat'},
+];
+const GEOMS=[
+  {v:'flat',       t:'Continuous'},
+  {v:'lenticular', t:'Lenticular (channel)'},
+  {v:'pinchout-L', t:'Pinch-out (left)'},
+  {v:'pinchout-R', t:'Pinch-out (right)'},
+];
+
+// Build base log AI
+const BASE_LOG=RAW_GR.map(([depth,gr])=>{
+  const grn=((gr-GR_MIN)/(GR_MAX-GR_MIN))*150;
+  const f=Math.max(0,Math.min(1,(GR_CUT-grn)/GR_CUT));
+  return {depth,ai:(f*VP_SAND+(1-f)*VP_SHALE)*(f*RHO_SAND+(1-f)*RHO_SHALE)};
+});
+
+function interpLog(){
+  const out=[];
+  for(let i=0;i<ND;i++){
+    const d=(i/(ND-1))*1000;
+    let lo=0;
+    for(let j=0;j<BASE_LOG.length-1;j++){if(BASE_LOG[j].depth<=d){lo=j;}}
+    const a=BASE_LOG[lo],b=BASE_LOG[Math.min(lo+1,BASE_LOG.length-1)];
+    const t=b.depth===a.depth?0:(d-a.depth)/(b.depth-a.depth);
+    out.push({depth:d,ai:a.ai+(b.ai-a.ai)*t});
+  }
+  return out;
+}
+const LOG=interpLog();
+
+let VIEW='seismic';
+function setView(v){
+  VIEW=v;
+  ['seismic','model','overlay'].forEach(id=>{
+    const b=document.getElementById('btn-'+id);
+    const m=document.getElementById('mbtn-'+id);
+    if(b)b.classList.toggle('on',id===v);
+    if(m)m.classList.toggle('on',id===v);
+  });
+  render();
+}
+
+function sf(geom,x){
+  switch(geom){
+    case'flat':       return 1;
+    case'lenticular': {const d=Math.abs(x-.5)*2;return Math.max(0,1-d*d*2.8);}
+    case'pinchout-L': return Math.min(1,Math.max(0,(x-.05)/.7));
+    case'pinchout-R': return Math.min(1,Math.max(0,(.95-x)/.7));
+    default:          return 1;
+  }
+}
+
+function buildTraceAI(x){
+  return LOG.map(pt=>{
+    const df=pt.depth/1000;
+    let lf=0;
+    for(const z of ZONES){
+      if(df>=z.top&&df<z.bot){
+        const g=document.getElementById('geom_'+z.id)?.value||z.geom;
+        lf=sf(g,x);break;
+      }
+    }
+    return AI_SHALE+lf*(pt.ai-AI_SHALE);
+  });
+}
+
+function rcArr(ai){
+  const r=new Array(ai.length).fill(0);
+  for(let i=0;i<ai.length-1;i++)r[i]=(ai[i+1]-ai[i])/(ai[i+1]+ai[i]);
+  return r;
+}
+
+function ricker(f){
+  const w=[],h=40,dt=.002;
+  for(let i=0;i<81;i++){const t=(i-h)*dt,u=Math.PI*f*t;w.push((1-2*u*u)*Math.exp(-u*u));}
+  return w;
+}
+
+function conv(r,w){
+  const hw=Math.floor(w.length/2),o=new Array(r.length).fill(0);
+  for(let i=0;i<r.length;i++)
+    for(let j=0;j<w.length;j++){const k=i+j-hw;if(k>=0&&k<r.length)o[k]+=r[i]*w[j];}
+  return o;
+}
+
+function rgba(hex,a){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function buildControls(){
+  document.getElementById('zoneCtrl').innerHTML=ZONES.map(z=>`
+    <div class="zone-card" style="border-left-color:${z.col}">
+      <div class="zn">${z.label}</div><div class="zs">${z.sub}</div>
+      <div class="zc"><label>Geometry</label>
+        <select id="geom_${z.id}" onchange="render()">
+          ${GEOMS.map(g=>`<option value="${g.v}"${g.v===z.geom?' selected':''}>${g.t}</option>`).join('')}
+        </select>
+      </div>
+    </div>`).join('');
+}
+
+function render(){
+  const freq=+document.getElementById('freq').value;
+  const ampPct=+document.getElementById('amp').value;
+  ['freqLbl','freqLblM'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=freq+' Hz';});
+  ['ampLbl','ampLblM'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=ampPct+'%';});
+  const tEl=document.getElementById('tuningLbl');
+  if(tEl)tEl.textContent=Math.round(3300/(4*freq))+' m';
+
+  const c=document.getElementById('C');
+  const W=c.parentElement.clientWidth||700,H=Math.max(440,W*0.6);
+  c.width=W;c.height=H;
+  const ctx=c.getContext('2d');
+
+  const LP=52,RP=92,TOP=28,BOT=H-22;
+  const PW=W-LP-RP,PH=BOT-TOP;
+  const trW=PW/NT;
+  const toY=d=>TOP+(d/1000)*PH;
+  const toX=ti=>LP+ti*trW;
+
+  ctx.fillStyle=VIEW==='model'?'#f4f2ee':'#0d1117';
+  ctx.fillRect(0,0,W,H);
+
+  if(VIEW==='model'||VIEW==='overlay'){
+    ZONES.forEach(z=>{
+      const g=document.getElementById('geom_'+z.id)?.value||z.geom;
+      const y0=toY(z.top*1000),y1=toY(z.bot*1000);
+      for(let ti=0;ti<NT;ti++){
+        const x=ti/(NT-1),f=sf(g,x);
+        if(f<0.03)continue;
+        ctx.fillStyle=rgba(z.col,VIEW==='overlay'?f*0.35:f*0.78);
+        ctx.fillRect(toX(ti),y0,trW+0.5,y1-y0);
+      }
+    });
+    if(VIEW==='model'){
+      ctx.fillStyle='rgba(120,115,105,0.12)';
+      ctx.fillRect(LP,TOP,PW,toY(ZONES[0].top*1000)-TOP);
+      ctx.fillRect(LP,toY(ZONES[3].bot*1000),PW,BOT-toY(ZONES[3].bot*1000));
+    }
+  }
+
+  [0,200,400,600,800,1000].forEach(dft=>{
+    const y=toY(dft);
+    ctx.strokeStyle=VIEW==='model'?'rgba(0,0,0,0.08)':'rgba(255,255,255,0.07)';
+    ctx.lineWidth=0.5;ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(LP,y);ctx.lineTo(LP+PW,y);ctx.stroke();
+    ctx.fillStyle=VIEW==='model'?'rgba(60,60,60,0.65)':'rgba(160,160,160,0.7)';
+    ctx.font='10px "IBM Plex Mono",monospace';ctx.textAlign='right';
+    ctx.fillText(dft+'ft',LP-3,y+4);
+  });
+
+  if(VIEW==='seismic'||VIEW==='overlay'){
+    const wav=ricker(freq);
+    const syns=[];
+    for(let ti=0;ti<NT;ti++){
+      const ai=buildTraceAI(ti/(NT-1));
+      syns.push(conv(rcArr(ai),wav));
+    }
+    const sMax=Math.max(...syns.flatMap(s=>s.map(Math.abs)),0.001);
+    const asc=(trW*ampPct/100)*2.8;
+
+    syns.forEach((syn,ti)=>{
+      const xC=toX(ti)+trW/2;
+      ctx.fillStyle='rgba(239,68,68,0.65)';
+      ctx.beginPath();let mv=true;
+      for(let d=0;d<ND;d++){
+        const y=TOP+(d/ND)*PH,x=xC+syn[d]/sMax*asc;
+        if(syn[d]>0){mv?ctx.moveTo(xC,y):ctx.lineTo(x,y);mv=false;}
+        else{if(!mv){ctx.lineTo(xC,y);mv=true;}}
+      }
+      ctx.closePath();ctx.fill();
+
+      ctx.fillStyle='rgba(96,165,250,0.55)';
+      ctx.beginPath();mv=true;
+      for(let d=0;d<ND;d++){
+        const y=TOP+(d/ND)*PH,x=xC+syn[d]/sMax*asc;
+        if(syn[d]<0){mv?ctx.moveTo(xC,y):ctx.lineTo(x,y);mv=false;}
+        else{if(!mv){ctx.lineTo(xC,y);mv=true;}}
+      }
+      ctx.closePath();ctx.fill();
+
+      ctx.beginPath();
+      ctx.strokeStyle=VIEW==='overlay'?'rgba(230,230,230,0.45)':'rgba(220,220,220,0.55)';
+      ctx.lineWidth=0.5;
+      for(let d=0;d<ND;d++){
+        const y=TOP+(d/ND)*PH,x=xC+syn[d]/sMax*asc;
+        d===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    });
+  }
+
+  ZONES.forEach(z=>{
+    const yT=toY(z.top*1000),yB=toY(z.bot*1000),yM=(yT+yB)/2;
+    ctx.strokeStyle=VIEW==='model'?rgba(z.col,0.55):rgba(z.col,0.45);
+    ctx.lineWidth=0.8;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(LP,yT);ctx.lineTo(LP+PW,yT);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=z.col;ctx.font='500 10px "IBM Plex Mono",monospace';ctx.textAlign='left';
+    ctx.fillText(z.label,LP+PW+4,yM-1);
+    ctx.fillStyle=rgba(z.col,0.65);ctx.font='9px "IBM Plex Mono",monospace';
+    ctx.fillText(z.sub,LP+PW+4,yM+11);
+  });
+  ctx.strokeStyle=rgba(ZONES[3].col,VIEW==='model'?0.4:0.3);
+  ctx.lineWidth=0.8;ctx.setLineDash([4,3]);
+  ctx.beginPath();ctx.moveTo(LP,toY(ZONES[3].bot*1000));ctx.lineTo(LP+PW,toY(ZONES[3].bot*1000));ctx.stroke();
+  ctx.setLineDash([]);
+
+  if(VIEW==='model'||VIEW==='overlay'){
+    ZONES.forEach(z=>{
+      const g=document.getElementById('geom_'+z.id)?.value||z.geom;
+      if(g==='flat')return;
+      const yT=toY(z.top*1000),yB=toY(z.bot*1000),yM=(yT+yB)/2;
+      ctx.strokeStyle=rgba(z.col,0.95);ctx.lineWidth=1.5;ctx.setLineDash([]);
+      ['top','bot'].forEach(edge=>{
+        ctx.beginPath();let first=true;
+        for(let ti=0;ti<NT;ti++){
+          const x=ti/(NT-1),f=sf(g,x);
+          if(f<0.04){first=true;continue;}
+          const cx=toX(ti)+trW/2,y=edge==='top'?yT:yB;
+          first?ctx.moveTo(cx,y):ctx.lineTo(cx,y);first=false;
+        }
+        ctx.stroke();
+      });
+      let L=-1,R=NT;
+      for(let ti=0;ti<NT;ti++){if(sf(g,ti/(NT-1))>0.04){L=ti;break;}}
+      for(let ti=NT-1;ti>=0;ti--){if(sf(g,ti/(NT-1))>0.04){R=ti;break;}}
+      if(L>3){
+        const px=toX(L)+trW/2;
+        ctx.strokeStyle=rgba(z.col,0.9);ctx.lineWidth=1.3;
+        ctx.beginPath();ctx.moveTo(px,yT-3);ctx.lineTo(px,yB+3);ctx.stroke();
+        ctx.fillStyle=rgba(z.col,0.9);
+        ctx.beginPath();ctx.moveTo(px-9,yM);ctx.lineTo(px,yM-5);ctx.lineTo(px,yM+5);ctx.fill();
+        ctx.fillStyle=z.col;ctx.font='500 9px "IBM Plex Mono",monospace';ctx.textAlign='right';
+        ctx.fillText('pinch-out',px-11,yM+3);
+      }
+      if(R<NT-4){
+        const px=toX(R)+trW/2;
+        ctx.strokeStyle=rgba(z.col,0.9);ctx.lineWidth=1.3;
+        ctx.beginPath();ctx.moveTo(px,yT-3);ctx.lineTo(px,yB+3);ctx.stroke();
+        ctx.fillStyle=rgba(z.col,0.9);
+        ctx.beginPath();ctx.moveTo(px+9,yM);ctx.lineTo(px,yM-5);ctx.lineTo(px,yM+5);ctx.fill();
+        ctx.fillStyle=z.col;ctx.font='500 9px "IBM Plex Mono",monospace';ctx.textAlign='left';
+        ctx.fillText('pinch-out',px+11,yM+3);
+      }
+    });
+  }
+
+  const axCol=VIEW==='model'?'rgba(80,80,80,0.55)':'rgba(140,140,140,0.6)';
+  ctx.fillStyle=axCol;ctx.font='10px "IBM Plex Mono",monospace';
+  for(let t=0;t<=NT;t+=20){
+    const x=LP+t*trW;
+    ctx.textAlign='center';ctx.fillText(t,x,BOT+14);
+    ctx.strokeStyle='rgba(150,150,150,0.07)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(x,TOP);ctx.lineTo(x,BOT);ctx.stroke();
+  }
+  ctx.textAlign='center';ctx.fillText('← trace number →',LP+PW/2,BOT+14);
+  ctx.fillStyle=axCol;
+  ctx.textAlign='left';ctx.fillText('2D Synthetic Seismic — Jackfork Group (log-based AI)',LP,TOP-9);
+  ctx.textAlign='right';ctx.fillText(freq+' Hz Ricker · '+NT+' traces',LP+PW,TOP-9);
+  ctx.strokeStyle='rgba(150,150,150,0.18)';ctx.lineWidth=0.5;
+  ctx.strokeRect(LP,TOP,PW,PH);
+
+  document.getElementById('legDiv').innerHTML=
+    ZONES.map(z=>`<span class="li"><span class="lb" style="background:${z.col}"></span>${z.label} &mdash; ${z.sub}</span>`).join('')+
+    (VIEW!=='model'
+      ?`<span class="li"><span class="lb" style="background:#ef4444;opacity:.7"></span>+ RC (peak)</span>
+        <span class="li"><span class="lb" style="background:#60a5fa;opacity:.7"></span>&minus; RC (trough)</span>`
+      :'');
+}
+
+function linkSliders(dId,mId){
+  const d=document.getElementById(dId),m=document.getElementById(mId);
+  if(!d||!m)return;
+  d.addEventListener('input',()=>{m.value=d.value;render();});
+  m.addEventListener('input',()=>{d.value=m.value;render();});
+}
+linkSliders('freq','freq-m');
+linkSliders('amp','amp-m');
+
+function toggleAcc(btn){
+  const closed=btn.nextElementSibling.classList.toggle('collapsed');
+  btn.textContent=(closed?'\u25B8':'\u25BE')+' Zone geometry settings';
+}
+
+buildControls();
+window.addEventListener('resize',render);
+render();
+</script>
+</body>
+</html>
